@@ -33,7 +33,7 @@
             icon: "info",
             title: "Sin conexión",
             html:
-              "Para abrir <strong>WhatsApp</strong> hace falta internet o datos móviles.<br/><br/>El <strong>PDF ya está descargado</strong>: use <strong>Ver PDF</strong> o envíelo por WhatsApp cuando tenga señal.",
+              "Para abrir <strong>WhatsApp</strong> hace falta internet o datos móviles.<br/><br/>Use <strong>Ver PDF</strong> o <strong>Descargar</strong> en el cuadro anterior. Cuando tenga señal podrá compartir por WhatsApp.",
             confirmButtonText: "Entendido",
           });
         } else {
@@ -122,6 +122,110 @@
   function num(v) {
     var n = parseFloat(String(v).replace(",", "."));
     return Number.isFinite(n) ? n : 0;
+  }
+
+  /**
+   * Miles con punto (.) y decimales con coma (,) — criterio es-PE.
+   * Acepta también punto como decimal si no hay coma (p. ej. 14.55).
+   */
+  function parseEsPeNumber(str) {
+    str = String(str == null ? "" : str).trim().replace(/\s/g, "");
+    if (!str) return 0;
+    var neg = false;
+    if (str.charAt(0) === "-") {
+      neg = true;
+      str = str.slice(1).trim();
+      if (!str) return 0;
+    }
+    var n;
+    if (str.indexOf(",") >= 0) {
+      var li = str.lastIndexOf(",");
+      var intRaw = str.slice(0, li).replace(/\./g, "");
+      var decRaw = str.slice(li + 1).replace(/[^\d]/g, "");
+      n = parseFloat(intRaw + (decRaw !== "" ? "." + decRaw : ""));
+    } else {
+      var dots = str.split(".");
+      if (dots.length > 2) {
+        n = parseFloat(
+          dots.slice(0, -1).join("") + "." + dots[dots.length - 1].replace(/[^\d]/g, "")
+        );
+      } else if (dots.length === 2) {
+        var a = dots[0];
+        var b = dots[1];
+        if (b.length === 3 && a !== "" && a !== "0" && /^[0-9]{1,3}$/.test(a)) {
+          n = parseFloat(a + b);
+        } else {
+          n = parseFloat(a + "." + b.replace(/[^\d]/g, ""));
+        }
+      } else {
+        n = parseFloat(str.replace(/[^\d.]/g, ""));
+      }
+    }
+    if (!Number.isFinite(n)) return 0;
+    return neg ? -n : n;
+  }
+
+  function isLocaleNumericField(el) {
+    if (!el || !el.matches) return false;
+    return el.matches(".peso-input, #peso-total, #merma, #peso-neto, #humedad, #peso-seco, #precio");
+  }
+
+  function focusPlainLocaleField(el) {
+    if (!el || el.readOnly) return;
+    if (!isLocaleNumericField(el)) return;
+    var raw = String(el.value).trim();
+    if (raw === "") return;
+    var n = parseEsPeNumber(raw);
+    el.value = String(n);
+  }
+
+  function blurFormatLocaleField(el) {
+    if (!el || el.readOnly) return;
+    if (!isLocaleNumericField(el)) return;
+    var raw = String(el.value).trim();
+    if (raw === "") return;
+    var n = parseEsPeNumber(raw);
+    if (
+      el.classList.contains("peso-input") ||
+      el.id === "peso-total" ||
+      el.id === "merma" ||
+      el.id === "peso-neto" ||
+      el.id === "peso-seco"
+    ) {
+      el.value = fmtTMFlex(n);
+      return;
+    }
+    if (el.id === "humedad") {
+      el.value = fmtUsd(Math.min(100, Math.max(0, n)));
+      return;
+    }
+    if (el.id === "precio") {
+      el.value = fmtUsd(Math.max(0, n));
+    }
+  }
+
+  function formatAllLocaleFields() {
+    if (els.tbody) {
+      var pins = els.tbody.querySelectorAll(".peso-input");
+      for (var i = 0; i < pins.length; i++) {
+        if (String(pins[i].value).trim()) blurFormatLocaleField(pins[i]);
+      }
+    }
+    ["peso-total", "merma", "peso-neto", "humedad", "peso-seco", "precio"].forEach(function (id) {
+      var e = document.getElementById(id);
+      if (e && String(e.value).trim()) blurFormatLocaleField(e);
+    });
+  }
+
+  function triggerPdfDownload(url, fname) {
+    if (!url) return;
+    var a = document.createElement("a");
+    a.href = url;
+    a.download = fname;
+    a.rel = "noopener";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
   }
 
   function fmtTM(n, d) {
@@ -360,7 +464,7 @@
     var inputs = els.tbody.querySelectorAll(".peso-input");
     var out = [];
     for (var i = 0; i < inputs.length; i++) {
-      var v = num(inputs[i].value);
+      var v = parseEsPeNumber(inputs[i].value);
       if (inputs[i].value !== "" || v !== 0) out.push(v);
       else out.push(null);
     }
@@ -394,22 +498,22 @@
   function clampPesoInputToTotal(inp) {
     if (!inp || !inp.classList || !inp.classList.contains("peso-input")) return;
     var trimmed = String(inp.value).trim();
-    if (trimmed !== "" && num(trimmed) < 0) {
+    if (trimmed !== "" && parseEsPeNumber(trimmed) < 0) {
       inp.value = "";
       trimmed = "";
     }
     var limitRaw = els.pesoTotal.value.trim();
     if (!limitRaw) return;
-    var limit = Math.round(num(limitRaw) * 1000) / 1000;
+    var limit = Math.round(parseEsPeNumber(limitRaw) * 1000) / 1000;
     if (!(limit > 0)) return;
     var inputs = els.tbody.querySelectorAll(".peso-input");
     var sumOthers = 0;
     for (var i = 0; i < inputs.length; i++) {
       if (inputs[i] === inp) continue;
       if (inputs[i].value !== "")
-        sumOthers += Math.round(num(inputs[i].value) * 1000) / 1000;
+        sumOthers += Math.round(parseEsPeNumber(inputs[i].value) * 1000) / 1000;
     }
-    var cur = inp.value === "" ? 0 : Math.round(num(inp.value) * 1000) / 1000;
+    var cur = inp.value === "" ? 0 : Math.round(parseEsPeNumber(inp.value) * 1000) / 1000;
     var maxAllowed = Math.round((limit - sumOthers) * 1000) / 1000;
     if (maxAllowed < 0) maxAllowed = 0;
     if (cur > maxAllowed + 1e-9) {
@@ -422,14 +526,14 @@
   function enforceTotalWeightCapFromStart() {
     var limitRaw = els.pesoTotal.value.trim();
     if (!limitRaw) return;
-    var limit = Math.round(num(limitRaw) * 1000) / 1000;
+    var limit = Math.round(parseEsPeNumber(limitRaw) * 1000) / 1000;
     if (!(limit > 0)) return;
     var inputs = els.tbody.querySelectorAll(".peso-input");
     var acc = 0;
     var changed = false;
     for (var i = 0; i < inputs.length; i++) {
       if (inputs[i].value === "") continue;
-      var cur = Math.round(num(inputs[i].value) * 1000) / 1000;
+      var cur = Math.round(parseEsPeNumber(inputs[i].value) * 1000) / 1000;
       var maxAllowed = Math.round((limit - acc) * 1000) / 1000;
       if (maxAllowed < 0) maxAllowed = 0;
       if (cur > maxAllowed + 1e-9) {
@@ -437,7 +541,9 @@
         changed = true;
       }
       acc +=
-        inputs[i].value === "" ? 0 : Math.round(num(inputs[i].value) * 1000) / 1000;
+        inputs[i].value === ""
+          ? 0
+          : Math.round(parseEsPeNumber(inputs[i].value) * 1000) / 1000;
     }
     if (changed && typeof Swal !== "undefined") {
       Swal.fire({
@@ -448,13 +554,18 @@
         showConfirmButton: false,
       });
     }
+    if (changed) {
+      for (var j = 0; j < inputs.length; j++) {
+        if (String(inputs[j].value).trim()) blurFormatLocaleField(inputs[j]);
+      }
+    }
   }
 
   /** Tope de Peso (TM) si está definido y > 0; si no, sin límite para filas. */
   function getPesoTotalCap() {
     var raw = els.pesoTotal.value.trim();
     if (!raw) return null;
-    var limit = Math.round(num(raw) * 1000) / 1000;
+    var limit = Math.round(parseEsPeNumber(raw) * 1000) / 1000;
     if (!(limit > 0)) return null;
     return limit;
   }
@@ -494,6 +605,7 @@
     renumberRows();
     var row = els.tbody.lastElementChild;
     var input = row.querySelector(".peso-input");
+    if (value !== undefined && value !== null && value !== "") blurFormatLocaleField(input);
     var removeBtn = row.querySelector(".remove-row");
     if (removeBtn) {
       removeBtn.addEventListener("click", function () {
@@ -602,6 +714,7 @@
     } else {
       seedRows();
     }
+    formatAllLocaleFields();
     refreshIcons();
   }
 
@@ -641,18 +754,18 @@
     }
 
     var totalHasInput = els.pesoTotal.value.trim() !== "";
-    var totalTM = totalHasInput ? num(els.pesoTotal.value) : 0;
+    var totalTM = totalHasInput ? parseEsPeNumber(els.pesoTotal.value) : 0;
 
-    var merma = Math.max(0, num(els.merma.value));
-    var hum = Math.min(100, Math.max(0, num(els.humedad.value)));
+    var merma = Math.max(0, parseEsPeNumber(els.merma.value));
+    var hum = Math.min(100, Math.max(0, parseEsPeNumber(els.humedad.value)));
 
     var netoCalc = Math.max(0, totalTM - merma);
     var secoCalc = netoCalc * (1 - hum / 100);
-    var precio = Math.max(0, num(els.precio.value));
+    var precio = Math.max(0, parseEsPeNumber(els.precio.value));
     var precioHasInput = els.precio.value.trim() !== "";
 
-    var neto = els.pesoNeto.value.trim() ? num(els.pesoNeto.value) : netoCalc;
-    var seco = els.pesoSeco.value.trim() ? num(els.pesoSeco.value) : secoCalc;
+    var neto = els.pesoNeto.value.trim() ? parseEsPeNumber(els.pesoNeto.value) : netoCalc;
+    var seco = els.pesoSeco.value.trim() ? parseEsPeNumber(els.pesoSeco.value) : secoCalc;
     var hasBaseForCalc =
       totalHasInput ||
       els.merma.value.trim() !== "" ||
@@ -689,7 +802,7 @@
     els.liqLotDisplay.textContent = lotLabel || "—";
 
     // No forzar escritura en peso neto/peso seco para permitir edición o borrado manual.
-    els.pagoTotal.value = canCalcPago ? fmtUsdInput(pagoCalc) : "";
+    els.pagoTotal.value = canCalcPago ? fmtUsd(pagoCalc) : "";
 
     els.pvLote.textContent = lotLabel || "—";
     els.pvFecha.textContent = els.fecha.value ? formatDisplayDate(els.fecha.value) : "—";
@@ -1049,13 +1162,6 @@
         lastPdfObjectUrl = null;
       }
       lastPdfObjectUrl = URL.createObjectURL(pdfBlob);
-      var dl = document.createElement("a");
-      dl.href = lastPdfObjectUrl;
-      dl.download = fname;
-      dl.rel = "noopener";
-      document.body.appendChild(dl);
-      dl.click();
-      dl.remove();
 
       var wspSummary =
         "📄 *Liquidación ACME* — RECORD DE PESAJE\n" +
@@ -1074,37 +1180,49 @@
         "• Pago (USD): " +
         fmtUsd(pago) +
         "\n\n" +
-        "Se descargó el PDF (\"" +
+        "PDF: " +
         fname +
-        "\"). En el móvil puede compartirlo desde aquí o adjuntarlo manualmente en WhatsApp desde Descargas.";
+        ". Puede abrirlo (Ver), descargarlo o compartirlo por WhatsApp desde el cuadro de la app.";
 
       if (typeof Swal !== "undefined") {
         Swal.fire({
           icon: "success",
-          title: "PDF listo",
+          title: "PDF generado",
           html:
-            "<p style=\"margin:0 0 .5rem;\">El archivo se guardó en su dispositivo. <strong>Sin internet</strong> puede usar igual <strong>Ver PDF</strong> o la descarga.</p>" +
-            "<p style=\"margin:0;font-size:.9em;opacity:.9\"><strong>WhatsApp</strong> y el enlace web necesitan <strong>Wi‑Fi o datos</strong> móviles.</p>",
-          showCancelButton: true,
+            "<p style=\"margin:0 0 .35rem;\">Elija <strong>una</strong> opción:</p>" +
+            "<p style=\"margin:0;font-size:.88em;opacity:.88\">Sin conexión puede usar <strong>Ver</strong> o <strong>Descargar</strong>. <strong>Compartir</strong> requiere datos o Wi‑Fi.</p>",
           showDenyButton: true,
+          showCancelButton: true,
           confirmButtonText: "Ver PDF",
-          denyButtonText: "WhatsApp",
-          cancelButtonText: "Cerrar",
+          denyButtonText: "Compartir",
+          cancelButtonText: "Descargar",
+          allowOutsideClick: false,
+          allowEscapeKey: false,
+          showCloseButton: false,
           focusConfirm: false,
           reverseButtons: false,
           customClass: {
             denyButton: "swal2-btn-wa",
-            cancelButton: "swal2-btn-muted",
+            cancelButton: "swal2-btn-dl",
           },
         }).then(function (res) {
           if (res.isConfirmed) {
             window.open(lastPdfObjectUrl, "_blank", "noopener,noreferrer");
           } else if (res.isDenied) {
             shareLastPdfWhatsApp(pdfBlob, fname, wspSummary);
+          } else if (
+            (typeof Swal !== "undefined" &&
+              Swal.DismissReason &&
+              res.dismiss === Swal.DismissReason.cancel) ||
+            res.dismiss === "cancel"
+          ) {
+            triggerPdfDownload(lastPdfObjectUrl, fname);
           }
         });
       } else {
-        if (window.confirm("¿Abrir el PDF en una pestaña nueva?")) {
+        if (window.confirm("¿Descargar el PDF ahora?")) {
+          triggerPdfDownload(lastPdfObjectUrl, fname);
+        } else if (window.confirm("¿Abrir el PDF en una pestaña nueva?")) {
           window.open(lastPdfObjectUrl, "_blank", "noopener,noreferrer");
         }
       }
@@ -1215,6 +1333,31 @@
       true
     );
   });
+
+  els.form.addEventListener(
+    "focusin",
+    function (e) {
+      var t = e.target;
+      if (!t || !isLocaleNumericField(t) || t.readOnly) return;
+      focusPlainLocaleField(t);
+    },
+    true
+  );
+
+  els.form.addEventListener(
+    "focusout",
+    function (e) {
+      var t = e.target;
+      if (!t || !isLocaleNumericField(t)) return;
+      blurFormatLocaleField(t);
+      if (t.classList.contains("peso-input")) {
+        clampPesoInputToTotal(t);
+        blurFormatLocaleField(t);
+      }
+      recalc();
+    },
+    true
+  );
 
   els.merma.addEventListener("input", recalc);
   els.humedad.addEventListener("input", recalc);

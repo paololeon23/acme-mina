@@ -1247,7 +1247,7 @@ input::placeholder {
   box-shadow: 0 0 0 3px rgba(37, 211, 102, 0.35) !important;
 }
 
-.swal2-btn-muted {
-  background: #e2e8f0 !important;
-  color: #334155 !important;
+.swal2-btn-dl {
+  background: #3b82f6 !important;
+  color: #fff !important;
 }

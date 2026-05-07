@@ -71,42 +71,90 @@
                   <span class="field-label">
                     Peso (TM)
                   </span>
-                  <input type="number" id="peso-total" name="peso-total" inputmode="decimal" min="0" step="0.001" placeholder="0.000" />
+                  <input
+                    type="text"
+                    id="peso-total"
+                    name="peso-total"
+                    class="locale-field"
+                    inputmode="decimal"
+                    autocomplete="off"
+                    placeholder="0"
+                  />
                 </label>
 
                 <label class="field">
                   <span class="field-label">
                     Merma (TM)
                   </span>
-                  <input type="number" id="merma" name="merma" inputmode="decimal" min="0" step="0.001" placeholder="0.000" />
+                  <input
+                    type="text"
+                    id="merma"
+                    name="merma"
+                    class="locale-field"
+                    inputmode="decimal"
+                    autocomplete="off"
+                    placeholder="0"
+                  />
                 </label>
 
                 <label class="field">
                   <span class="field-label">
                     Peso neto (TM)
                   </span>
-                  <input type="number" id="peso-neto" name="peso-neto" inputmode="decimal" min="0" step="0.001" placeholder="0.000" />
+                  <input
+                    type="text"
+                    id="peso-neto"
+                    name="peso-neto"
+                    class="locale-field"
+                    inputmode="decimal"
+                    autocomplete="off"
+                    placeholder="0"
+                  />
                 </label>
 
                 <label class="field">
                   <span class="field-label">
                     Humedad (%)
                   </span>
-                  <input type="number" id="humedad" name="humedad" inputmode="decimal" min="0" max="100" step="0.01" placeholder="0.00" />
+                  <input
+                    type="text"
+                    id="humedad"
+                    name="humedad"
+                    class="locale-field locale-pct"
+                    inputmode="decimal"
+                    autocomplete="off"
+                    placeholder="0"
+                  />
                 </label>
 
                 <label class="field">
                   <span class="field-label">
                     Peso seco (TM)
                   </span>
-                  <input type="number" id="peso-seco" name="peso-seco" inputmode="decimal" min="0" step="0.001" placeholder="0.000" />
+                  <input
+                    type="text"
+                    id="peso-seco"
+                    name="peso-seco"
+                    class="locale-field"
+                    inputmode="decimal"
+                    autocomplete="off"
+                    placeholder="0"
+                  />
                 </label>
 
                 <label class="field">
                   <span class="field-label">
                     Precio por tm (USD)
                   </span>
-                  <input type="number" id="precio" name="precio" inputmode="decimal" min="0" step="0.01" placeholder="0.00" />
+                  <input
+                    type="text"
+                    id="precio"
+                    name="precio"
+                    class="locale-field locale-usd"
+                    inputmode="decimal"
+                    autocomplete="off"
+                    placeholder="0"
+                  />
                 </label>
 
                 <label class="field field-span-2">
@@ -272,7 +320,7 @@
         <td>
           <input
             type="text"
-            class="peso-input"
+            class="peso-input locale-field"
             inputmode="decimal"
             autocomplete="off"
             spellcheck="false"
