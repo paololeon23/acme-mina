@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Cerro de mina">
+  <defs>
+    <linearGradient id="acmeG" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#f0d878" />
+      <stop offset="100%" stop-color="#c9a21a" />
+    </linearGradient>
+    <clipPath id="round">
+      <circle cx="32" cy="32" r="30" />
+    </clipPath>
+  </defs>
+  <g clip-path="url(#round)">
+    <circle cx="32" cy="32" r="30" fill="url(#acmeG)" />
+    <circle
+      cx="32"
+      cy="32"
+      r="27.5"
+      fill="none"
+      stroke="#152d4f"
+      stroke-width="1.1"
+      opacity="0.2"
+    />
+    <!-- Cerro / macizo -->
+    <path fill="#152d4f" d="M7 51 L24 27 L33 37 L49 19 L59 51 Z" />
+    <!-- Relieve (lomas auxiliares) -->
+    <path
+      fill="none"
+      stroke="#152d4f"
+      stroke-width="1.8"
+      stroke-linecap="round"
+      opacity="0.4"
+      d="M18 44c6-3 12-8 17-14M22 46c8-2 15-7 22-15"
+    />
+    <!-- Bocamina / acceso (típico cerro de mina) -->
+    <ellipse cx="26" cy="43.5" rx="4.2" ry="2.8" fill="url(#acmeG)" />
+    <ellipse
+      cx="26"
+      cy="43.5" rx="4.2"
+      ry="2.8"
+      fill="none"
+      stroke="#152d4f"
+      stroke-width="1.3"
+    />
+    <path
+      fill="none"
+      stroke="#0f2744"
+      stroke-width="1.2"
+      stroke-linecap="round"
+      d="M23 43.5h6"
+      opacity="0.85"
+    />
+  </g>
+</svg>

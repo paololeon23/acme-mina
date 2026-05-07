@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="Registro de pesaje y liquidación — Corporación Minera ACME S.A.C."
+    />
+    <title>Liquidación de pesaje | ACME Minera</title>
+    <link rel="icon" type="image/svg+xml" href="favicon.svg?v=13" />
+    <link rel="stylesheet" href="librerias/sweetalert2.min.css" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app-bg-base" aria-hidden="true"></div>
+    <div class="app-bg-blob app-bg-blob-1" aria-hidden="true"></div>
+    <div class="app-bg-blob app-bg-blob-2" aria-hidden="true"></div>
+    <div class="app-bg-blob app-bg-blob-3" aria-hidden="true"></div>
+    <div class="app-bg-veil" aria-hidden="true"></div>
+
+    <main class="layout">
+      <form id="liquidacion-form" class="work-grid" autocomplete="off">
+        <header class="site-header">
+          <div class="site-header-inner">
+            <div class="site-header-spacer" aria-hidden="true"></div>
+            <div class="brand">
+              <div class="brand-text">
+                <span class="brand-name">Corporación Minera ACME S.A.C.</span>
+                <span class="brand-tag">Liquidación de pesaje · uso en campo</span>
+              </div>
+            </div>
+            <label class="header-date" for="fecha">
+              <span class="header-date-hint">Fecha de operación</span>
+              <span class="header-date-row">
+                <span class="header-date-icon-wrap" aria-hidden="true">
+                  <i data-lucide="calendar-days" class="lucide-btn" aria-hidden="true"></i>
+                </span>
+                <span class="header-date-input-wrap">
+                  <input type="date" id="fecha" name="fecha" class="header-date-input" />
+                </span>
+              </span>
+            </label>
+          </div>
+        </header>
+
+        <div class="two-parts" role="group" aria-label="Formulario en dos partes">
+          <!-- Parte 1: Liquidación (resumen y parámetros) -->
+          <section class="panel part part-one" aria-labelledby="part-one-title">
+            <div class="part-ribbon"><span class="part-ribbon-num">1</span> Liquidación</div>
+            <div class="part-head">
+              <h1 id="part-one-title">Resumen de liquidación</h1>
+              <p class="liquidacion-lot-title" aria-live="polite">
+                Liquidación image.png· <strong id="liq-lot-display">—</strong>
+              </p>
+              <p class="panel-sub part-hint">
+                Parámetros y totales. El peso bruto proviene de la parte 2 (tabla).
+              </p>
+            </div>
+
+            <div class="part-body stack-inner">
+              <div class="field-grid metrics-grid">
+                <label class="field field-span-2">
+                  <span class="field-label">
+                    Lote liquidación
+                  </span>
+                  <input type="text" id="lote" name="lote" placeholder="Ej. Lt 137-LT 109-M-9 BB" />
+                </label>
+
+                <label class="field">
+                  <span class="field-label">
+                    Peso (TM)
+                  </span>
+                  <input type="number" id="peso-total" name="peso-total" inputmode="decimal" min="0" step="0.001" placeholder="0.000" />
+                </label>
+
+                <label class="field">
+                  <span class="field-label">
+                    Merma (TM)
+                  </span>
+                  <input type="number" id="merma" name="merma" inputmode="decimal" min="0" step="0.001" placeholder="0.000" />
+                </label>
+
+                <label class="field">
+                  <span class="field-label">
+                    Peso neto (TM)
+                  </span>
+                  <input type="number" id="peso-neto" name="peso-neto" inputmode="decimal" min="0" step="0.001" placeholder="0.000" />
+                </label>
+
+                <label class="field">
+                  <span class="field-label">
+                    Humedad (%)
+                  </span>
+                  <input type="number" id="humedad" name="humedad" inputmode="decimal" min="0" max="100" step="0.01" placeholder="0.00" />
+                </label>
+
+                <label class="field">
+                  <span class="field-label">
+                    Peso seco (TM)
+                  </span>
+                  <input type="number" id="peso-seco" name="peso-seco" inputmode="decimal" min="0" step="0.001" placeholder="0.000" />
+                </label>
+
+                <label class="field">
+                  <span class="field-label">
+                    Precio por tm (USD)
+                  </span>
+                  <input type="number" id="precio" name="precio" inputmode="decimal" min="0" step="0.01" placeholder="0.00" />
+                </label>
+
+                <label class="field field-span-2">
+                  <span class="field-label">Pago total (USD)</span>
+                  <input type="text" id="pago-total" name="pago-total" inputmode="decimal" placeholder="0.00" readonly class="readonly payment" />
+                </label>
+              </div>
+            </div>
+          </section>
+
+          <!-- Parte 2: registro directo -->
+          <section class="panel part part-two">
+            <div class="part-ribbon">
+              <span><span class="part-ribbon-num">2</span> Pesajes</span>
+              <button type="button" class="part-toggle-btn" id="part-two-toggle" aria-expanded="true" aria-label="Cerrar pesajes" title="Cerrar pesajes">
+                <i data-lucide="chevron-up" class="lucide-btn" aria-hidden="true"></i>
+              </button>
+            </div>
+            <div class="part-body stack-inner part-body-flush">
+              <div class="field-grid">
+                <label class="field">
+                  <span class="field-label">
+                    Supervisor
+                  </span>
+                  <input type="text" id="supervisor" name="supervisor" placeholder="Nombre del supervisor" />
+                </label>
+              </div>
+
+              <fieldset class="card weights-card">
+                <legend>
+                  Pesajes (TM)
+                </legend>
+                <p class="hint">
+                  Ingrese cada TM a libre criterio; la <strong>suma de todas las filas debe ser igual</strong> al
+                  <strong>Peso (TM)</strong> de arriba. Si la suma lo supera, verá una alerta y el valor se ajusta.
+                </p>
+                <div class="table-wrap">
+                  <table class="data-table">
+                    <tbody id="pesos-body"></tbody>
+                  </table>
+                </div>
+                <button type="button" class="btn btn-ghost btn-add" id="add-row">
+                  <i data-lucide="plus" class="lucide-btn" aria-hidden="true"></i>
+                  Añadir peso
+                </button>
+              </fieldset>
+            </div>
+          </section>
+        </div>
+
+        <div class="panel panel-actions-bar">
+          <div class="actions-row">
+            <button type="button" class="btn btn-secondary" id="btn-clear">
+              <i data-lucide="eraser" class="lucide-btn" aria-hidden="true"></i>
+              Limpiar
+            </button>
+            <button type="button" class="btn btn-primary" id="btn-pdf">
+              <i data-lucide="file-down" class="lucide-btn" aria-hidden="true"></i>
+              Generar PDF
+            </button>
+          </div>
+        </div>
+      </form>
+
+      <section class="panel panel-preview" aria-labelledby="preview-title">
+        <div class="panel-head">
+          <h2 id="preview-title">Vista previa del documento</h2>
+          <p class="panel-sub">Actualización en vivo.</p>
+        </div>
+
+        <div class="preview-frame" id="preview-root">
+          <article class="doc" id="doc-preview">
+            <header class="doc-header">
+              <div class="doc-brand">
+                <span class="doc-logo">ACME</span>
+                <div class="doc-co">
+                  <strong>Corporación Minera ACME S.A.C.</strong>
+                  <span>Lima — Perú</span>
+                </div>
+              </div>
+              <div class="doc-title-block">
+                <h3 class="doc-title">RECORD DE PESAJE</h3>
+                <span class="doc-sub">称重记录 · Liquidación provisional</span>
+              </div>
+            </header>
+
+            <dl class="doc-meta">
+              <div>
+                <dt>LOTE</dt>
+                <dd id="pv-lote">—</dd>
+              </div>
+              <div>
+                <dt>FECHA</dt>
+                <dd id="pv-fecha">—</dd>
+              </div>
+              <div>
+                <dt>重型经理</dt>
+                <dd id="pv-supervisor">胡安</dd>
+              </div>
+            </dl>
+
+            <div class="doc-table-wrap">
+              <table class="doc-table">
+                <thead>
+                  <tr>
+                    <th>数字 / N</th>
+                    <th>重量吨 (TN)</th>
+                    <th>数字 / N</th>
+                    <th>重量吨 (TN)</th>
+                  </tr>
+                </thead>
+                <tbody id="pv-pesos"></tbody>
+              </table>
+            </div>
+
+            <p class="doc-bigbag" id="pv-bigbag">
+              TOTAL BIG BAG · 总量（TM） · <strong id="pv-bigbag-val">0.000</strong>
+            </p>
+
+            <footer class="doc-footer">
+              <div class="doc-totals">
+                <div class="doc-line">
+                  <span>Peso total (TM)</span>
+                  <strong id="pv-total">0.000</strong>
+                </div>
+                <div class="doc-line">
+                  <span>Merma</span>
+                  <strong id="pv-merma">0.000</strong>
+                </div>
+                <div class="doc-line">
+                  <span>Peso neto</span>
+                  <strong id="pv-neto">0.000</strong>
+                </div>
+                <div class="doc-line">
+                  <span>Humedad</span>
+                  <strong id="pv-humedad">0.00 %</strong>
+                </div>
+                <div class="doc-line accent">
+                  <span>Peso seco</span>
+                  <strong id="pv-seco">0.000</strong>
+                </div>
+                <div class="doc-line">
+                  <span>Precio / TM (USD)</span>
+                  <strong id="pv-precio">0.00</strong>
+                </div>
+                <div class="doc-line pay">
+                  <span>Pago total (USD)</span>
+                  <strong id="pv-pago">0.00</strong>
+                </div>
+              </div>
+              <p class="doc-legal">
+                Documento generado para fines operativos. Verificar cifras antes del cierre contable.
+              </p>
+            </footer>
+          </article>
+        </div>
+      </section>
+    </main>
+
+    <template id="row-template">
+      <tr>
+        <td class="col-n"><span class="row-index"></span></td>
+        <td>
+          <input
+            type="text"
+            class="peso-input"
+            inputmode="decimal"
+            autocomplete="off"
+            spellcheck="false"
+            placeholder=""
+            aria-label="Peso TM de esta fila"
+          />
+        </td>
+      </tr>
+    </template>
+
+    <script src="librerias/lucide.min.js"></script>
+    <script src="librerias/sweetalert2.all.min.js"></script>
+    <script src="librerias/jspdf.umd.min.js"></script>
+    <script src="librerias/jspdf.plugin.autotable.min.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>
