@@ -1247,24 +1247,24 @@
 
   function confirmClear() {
     var doit = function () {
-      localStorage.removeItem(STORAGE_KEY);
-      els.lote.value = "";
-      els.fecha.value = todayIso();
-      els.supervisor.value = "";
-      els.pesoTotal.value = "";
-      els.pesoNeto.value = "";
-      els.merma.value = "";
-      els.humedad.value = "";
-      els.pesoSeco.value = "";
-      els.precio.value = "";
-      els.pagoTotal.value = "";
-      clearTbody();
-      seedRows();
-      refreshIcons();
-      recalc();
-      if (typeof Swal !== "undefined") {
-        Swal.fire({ icon: "info", title: "Formulario limpio", timer: 2000, showConfirmButton: false });
+      if (saveTimer) {
+        clearTimeout(saveTimer);
+        saveTimer = null;
       }
+      try {
+        localStorage.removeItem(STORAGE_KEY);
+      } catch (e) {
+        /* ignorar */
+      }
+      if (lastPdfObjectUrl) {
+        try {
+          URL.revokeObjectURL(lastPdfObjectUrl);
+        } catch (e2) {
+          /* ignorar */
+        }
+        lastPdfObjectUrl = null;
+      }
+      window.location.reload();
     };
 
     if (typeof Swal !== "undefined") {
