@@ -22,7 +22,7 @@
     if (Toast) Toast.fire({ icon: icon || "success", title: msg });
   }
 
-  function shareLastPdfWhatsApp(blob, fname, summaryText) {
+  function shareLastPdfWhatsApp(blob, fname) {
     var online = typeof navigator === "undefined" || navigator.onLine !== false;
     var file = new File([blob], fname, { type: "application/pdf" });
 
@@ -45,7 +45,7 @@
         return;
       }
       window.open(
-        "https://wa.me/?text=" + encodeURIComponent(summaryText),
+        "https://wa.me/?text=" + encodeURIComponent(fname),
         "_blank",
         "noopener,noreferrer"
       );
@@ -55,8 +55,7 @@
       navigator
         .share({
           files: [file],
-          title: "Liquidación ACME",
-          text: summaryText.slice(0, 280) || "Liquidación de pesaje",
+          title: fname,
         })
         .catch(function () {
           tryOpenWhatsAppLink();
@@ -125,44 +124,139 @@
   }
 
   /**
-   * Miles con punto (.) y decimales con coma (,) — criterio es-PE.
-   * Acepta también punto como decimal si no hay coma (p. ej. 14.55).
+   * Separa parte entera y decimal mientras se escribe (miles con punto, decimal con coma o con último punto).
+   * maxDecimals: 3 para TM, 2 para USD / humedad.
    */
-  function parseEsPeNumber(str) {
+  function splitEsPeNumberString(str, maxDecimals) {
+    maxDecimals = maxDecimals == null ? 3 : maxDecimals;
     str = String(str == null ? "" : str).trim().replace(/\s/g, "");
-    if (!str) return 0;
+    if (!str) return { intDigits: "", decDigits: "", neg: false };
     var neg = false;
     if (str.charAt(0) === "-") {
       neg = true;
       str = str.slice(1).trim();
-      if (!str) return 0;
     }
-    var n;
+    if (!str) return { intDigits: "", decDigits: "", neg: neg };
+
     if (str.indexOf(",") >= 0) {
-      var li = str.lastIndexOf(",");
-      var intRaw = str.slice(0, li).replace(/\./g, "");
-      var decRaw = str.slice(li + 1).replace(/[^\d]/g, "");
-      n = parseFloat(intRaw + (decRaw !== "" ? "." + decRaw : ""));
-    } else {
-      var dots = str.split(".");
-      if (dots.length > 2) {
-        n = parseFloat(
-          dots.slice(0, -1).join("") + "." + dots[dots.length - 1].replace(/[^\d]/g, "")
-        );
-      } else if (dots.length === 2) {
-        var a = dots[0];
-        var b = dots[1];
-        if (b.length === 3 && a !== "" && a !== "0" && /^[0-9]{1,3}$/.test(a)) {
-          n = parseFloat(a + b);
-        } else {
-          n = parseFloat(a + "." + b.replace(/[^\d]/g, ""));
-        }
-      } else {
-        n = parseFloat(str.replace(/[^\d.]/g, ""));
+      var onlyCommaDigits = str.replace(/[^\d,]/g, "");
+      // Excel / inglés: 1,000 · 12,345 · 1,234,567 (grupos de 3; no confundir con 14,55)
+      if (/^\d{1,3}(,\d{3})*$/.test(onlyCommaDigits)) {
+        return {
+          intDigits: onlyCommaDigits.replace(/,/g, ""),
+          decDigits: "",
+          neg: neg,
+        };
       }
+      var li = str.lastIndexOf(",");
+      var left = str.slice(0, li);
+      var right = str.slice(li + 1).replace(/[^\d]/g, "").slice(0, maxDecimals);
+      var intDigits = left.replace(/\./g, "").replace(/[^\d]/g, "");
+      return { intDigits: intDigits, decDigits: right, neg: neg };
     }
-    if (!Number.isFinite(n)) return 0;
-    return neg ? -n : n;
+
+    var lastDot = str.lastIndexOf(".");
+    if (lastDot < 0) {
+      return {
+        intDigits: str.replace(/\./g, "").replace(/[^\d]/g, ""),
+        decDigits: "",
+        neg: neg,
+      };
+    }
+
+    var after = str.slice(lastDot + 1).replace(/[^\d]/g, "");
+    var before = str.slice(0, lastDot);
+    var beforeDotCount = (before.match(/\./g) || []).length;
+
+    var isDecimal = false;
+    if (after.length > 0 && after.length <= maxDecimals) {
+      if (after.length < 3) isDecimal = true;
+      else if (after.length === 3 && beforeDotCount >= 1) isDecimal = true;
+      else if (after.length === 3 && beforeDotCount === 0) isDecimal = false;
+    } else if (after.length === 0 && beforeDotCount >= 1) {
+      isDecimal = true;
+    }
+
+    if (isDecimal) {
+      var intDigits = before.replace(/\./g, "").replace(/[^\d]/g, "");
+      return { intDigits: intDigits, decDigits: after.slice(0, maxDecimals), neg: neg };
+    }
+
+    var all = str.replace(/\./g, "").replace(/[^\d]/g, "");
+    return { intDigits: all, decDigits: "", neg: neg };
+  }
+
+  function parseEsPeNumber(str, maxDecimals) {
+    maxDecimals = maxDecimals == null ? 3 : maxDecimals;
+    var p = splitEsPeNumberString(str, maxDecimals);
+    if (!p.intDigits && !p.decDigits) return 0;
+    var sign = p.neg ? -1 : 1;
+    var intPart = parseInt(p.intDigits || "0", 10);
+    if (!p.decDigits) return sign * intPart;
+    var decNum = parseInt(p.decDigits, 10) / Math.pow(10, p.decDigits.length);
+    return sign * (intPart + decNum);
+  }
+
+  function groupThousandsDigits(digits) {
+    if (!digits) return "";
+    var s = digits.replace(/\D/g, "");
+    if (!s) return "";
+    s = s.replace(/^0+(?=\d)/, "") || "0";
+    return s.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+  }
+
+  function maxDecimalsForField(el) {
+    if (!el) return 3;
+    if (el.id === "precio" || el.id === "humedad") return 2;
+    return 3;
+  }
+
+  /** Formato en vivo: 100 → 100; 1000 → 1.000; 1.000.30 o 1.000,30 → decimales con coma */
+  function formatLocaleInputLive(el) {
+    if (!el || el.readOnly || !isLocaleNumericField(el)) return;
+    var maxDec = maxDecimalsForField(el);
+    var trimmed = String(el.value).trim().replace(/\s/g, "");
+    if (!trimmed) {
+      el.value = "";
+      return;
+    }
+
+    if (/^\d+\.$/.test(trimmed)) {
+      el.value = groupThousandsDigits(trimmed.slice(0, -1)) + ",";
+      return;
+    }
+
+    var endsWithCommaOnly = /,$/.test(trimmed);
+    var parts = splitEsPeNumberString(trimmed, maxDec);
+    var intF = parts.intDigits ? groupThousandsDigits(parts.intDigits) : "";
+
+    if (!intF && !parts.decDigits && !endsWithCommaOnly) {
+      el.value = "";
+      return;
+    }
+    if (!intF && parts.decDigits) intF = "0";
+
+    if (endsWithCommaOnly && parts.decDigits === "") {
+      el.value = intF + ",";
+      return;
+    }
+
+    var lastDot = trimmed.lastIndexOf(".");
+    var trailingDotDecimal =
+      lastDot >= 0 &&
+      trimmed.slice(lastDot + 1) === "" &&
+      (trimmed.slice(0, lastDot).match(/\./g) || []).length >= 1;
+    if (trailingDotDecimal && parts.decDigits === "") {
+      el.value = intF + ",";
+      return;
+    }
+
+    if (parts.decDigits) {
+      el.value = intF + "," + parts.decDigits;
+      return;
+    }
+
+    el.value = intF;
   }
 
   function isLocaleNumericField(el) {
@@ -170,21 +264,13 @@
     return el.matches(".peso-input, #peso-total, #merma, #peso-neto, #humedad, #peso-seco, #precio");
   }
 
-  function focusPlainLocaleField(el) {
-    if (!el || el.readOnly) return;
-    if (!isLocaleNumericField(el)) return;
-    var raw = String(el.value).trim();
-    if (raw === "") return;
-    var n = parseEsPeNumber(raw);
-    el.value = String(n);
-  }
-
   function blurFormatLocaleField(el) {
     if (!el || el.readOnly) return;
     if (!isLocaleNumericField(el)) return;
     var raw = String(el.value).trim();
     if (raw === "") return;
-    var n = parseEsPeNumber(raw);
+    var md = maxDecimalsForField(el);
+    var n = parseEsPeNumber(raw, md);
     if (
       el.classList.contains("peso-input") ||
       el.id === "peso-total" ||
@@ -464,7 +550,7 @@
     var inputs = els.tbody.querySelectorAll(".peso-input");
     var out = [];
     for (var i = 0; i < inputs.length; i++) {
-      var v = parseEsPeNumber(inputs[i].value);
+      var v = parseEsPeNumber(inputs[i].value, 3);
       if (inputs[i].value !== "" || v !== 0) out.push(v);
       else out.push(null);
     }
@@ -498,26 +584,27 @@
   function clampPesoInputToTotal(inp) {
     if (!inp || !inp.classList || !inp.classList.contains("peso-input")) return;
     var trimmed = String(inp.value).trim();
-    if (trimmed !== "" && parseEsPeNumber(trimmed) < 0) {
+    if (trimmed !== "" && parseEsPeNumber(trimmed, 3) < 0) {
       inp.value = "";
       trimmed = "";
     }
     var limitRaw = els.pesoTotal.value.trim();
     if (!limitRaw) return;
-    var limit = Math.round(parseEsPeNumber(limitRaw) * 1000) / 1000;
+    var limit = Math.round(parseEsPeNumber(limitRaw, 3) * 1000) / 1000;
     if (!(limit > 0)) return;
     var inputs = els.tbody.querySelectorAll(".peso-input");
     var sumOthers = 0;
     for (var i = 0; i < inputs.length; i++) {
       if (inputs[i] === inp) continue;
       if (inputs[i].value !== "")
-        sumOthers += Math.round(parseEsPeNumber(inputs[i].value) * 1000) / 1000;
+        sumOthers += Math.round(parseEsPeNumber(inputs[i].value, 3) * 1000) / 1000;
     }
-    var cur = inp.value === "" ? 0 : Math.round(parseEsPeNumber(inp.value) * 1000) / 1000;
+    var cur =
+      inp.value === "" ? 0 : Math.round(parseEsPeNumber(inp.value, 3) * 1000) / 1000;
     var maxAllowed = Math.round((limit - sumOthers) * 1000) / 1000;
     if (maxAllowed < 0) maxAllowed = 0;
     if (cur > maxAllowed + 1e-9) {
-      inp.value = maxAllowed > 0 ? String(maxAllowed) : "";
+      inp.value = maxAllowed > 0 ? fmtTMFlex(maxAllowed) : "";
       firePesoExceedsCapAlert();
     }
   }
@@ -526,24 +613,24 @@
   function enforceTotalWeightCapFromStart() {
     var limitRaw = els.pesoTotal.value.trim();
     if (!limitRaw) return;
-    var limit = Math.round(parseEsPeNumber(limitRaw) * 1000) / 1000;
+    var limit = Math.round(parseEsPeNumber(limitRaw, 3) * 1000) / 1000;
     if (!(limit > 0)) return;
     var inputs = els.tbody.querySelectorAll(".peso-input");
     var acc = 0;
     var changed = false;
     for (var i = 0; i < inputs.length; i++) {
       if (inputs[i].value === "") continue;
-      var cur = Math.round(parseEsPeNumber(inputs[i].value) * 1000) / 1000;
+      var cur = Math.round(parseEsPeNumber(inputs[i].value, 3) * 1000) / 1000;
       var maxAllowed = Math.round((limit - acc) * 1000) / 1000;
       if (maxAllowed < 0) maxAllowed = 0;
       if (cur > maxAllowed + 1e-9) {
-        inputs[i].value = maxAllowed > 0 ? String(maxAllowed) : "";
+        inputs[i].value = maxAllowed > 0 ? fmtTMFlex(maxAllowed) : "";
         changed = true;
       }
       acc +=
         inputs[i].value === ""
           ? 0
-          : Math.round(parseEsPeNumber(inputs[i].value) * 1000) / 1000;
+          : Math.round(parseEsPeNumber(inputs[i].value, 3) * 1000) / 1000;
     }
     if (changed && typeof Swal !== "undefined") {
       Swal.fire({
@@ -565,7 +652,7 @@
   function getPesoTotalCap() {
     var raw = els.pesoTotal.value.trim();
     if (!raw) return null;
-    var limit = Math.round(parseEsPeNumber(raw) * 1000) / 1000;
+    var limit = Math.round(parseEsPeNumber(raw, 3) * 1000) / 1000;
     if (!(limit > 0)) return null;
     return limit;
   }
@@ -754,18 +841,18 @@
     }
 
     var totalHasInput = els.pesoTotal.value.trim() !== "";
-    var totalTM = totalHasInput ? parseEsPeNumber(els.pesoTotal.value) : 0;
+    var totalTM = totalHasInput ? parseEsPeNumber(els.pesoTotal.value, 3) : 0;
 
-    var merma = Math.max(0, parseEsPeNumber(els.merma.value));
-    var hum = Math.min(100, Math.max(0, parseEsPeNumber(els.humedad.value)));
+    var merma = Math.max(0, parseEsPeNumber(els.merma.value, 3));
+    var hum = Math.min(100, Math.max(0, parseEsPeNumber(els.humedad.value, 2)));
 
     var netoCalc = Math.max(0, totalTM - merma);
     var secoCalc = netoCalc * (1 - hum / 100);
-    var precio = Math.max(0, parseEsPeNumber(els.precio.value));
+    var precio = Math.max(0, parseEsPeNumber(els.precio.value, 2));
     var precioHasInput = els.precio.value.trim() !== "";
 
-    var neto = els.pesoNeto.value.trim() ? parseEsPeNumber(els.pesoNeto.value) : netoCalc;
-    var seco = els.pesoSeco.value.trim() ? parseEsPeNumber(els.pesoSeco.value) : secoCalc;
+    var neto = els.pesoNeto.value.trim() ? parseEsPeNumber(els.pesoNeto.value, 3) : netoCalc;
+    var seco = els.pesoSeco.value.trim() ? parseEsPeNumber(els.pesoSeco.value, 3) : secoCalc;
     var hasBaseForCalc =
       totalHasInput ||
       els.merma.value.trim() !== "" ||
@@ -1163,27 +1250,6 @@
       }
       lastPdfObjectUrl = URL.createObjectURL(pdfBlob);
 
-      var wspSummary =
-        "📄 *Liquidación ACME* — RECORD DE PESAJE\n" +
-        "• Lote: " +
-        loteTxt +
-        "\n" +
-        "• Fecha: " +
-        fechaTxt +
-        "\n" +
-        "• Peso (TM): " +
-        fmtTMFlex(totalTM) +
-        "\n" +
-        "• Total big bags: " +
-        fmtTMFlex(totalBigBagTM) +
-        "\n" +
-        "• Pago (USD): " +
-        fmtUsd(pago) +
-        "\n\n" +
-        "PDF: " +
-        fname +
-        ". Puede abrirlo (Ver), descargarlo o compartirlo por WhatsApp desde el cuadro de la app.";
-
       if (typeof Swal !== "undefined") {
         Swal.fire({
           icon: "success",
@@ -1209,7 +1275,7 @@
           if (res.isConfirmed) {
             window.open(lastPdfObjectUrl, "_blank", "noopener,noreferrer");
           } else if (res.isDenied) {
-            shareLastPdfWhatsApp(pdfBlob, fname, wspSummary);
+            shareLastPdfWhatsApp(pdfBlob, fname);
           } else if (
             (typeof Swal !== "undefined" &&
               Swal.DismissReason &&
@@ -1321,25 +1387,14 @@
     recalc();
   });
 
-  ["input", "change"].forEach(function (ev) {
-    els.form.addEventListener(
-      ev,
-      function (e) {
-        if (e.target && e.target.classList.contains("peso-input")) {
-          clampPesoInputToTotal(e.target);
-          recalc();
-        }
-      },
-      true
-    );
-  });
-
   els.form.addEventListener(
-    "focusin",
+    "input",
     function (e) {
       var t = e.target;
       if (!t || !isLocaleNumericField(t) || t.readOnly) return;
-      focusPlainLocaleField(t);
+      formatLocaleInputLive(t);
+      if (t.classList.contains("peso-input")) clampPesoInputToTotal(t);
+      recalc();
     },
     true
   );
@@ -1359,16 +1414,10 @@
     true
   );
 
-  els.merma.addEventListener("input", recalc);
-  els.humedad.addEventListener("input", recalc);
-  els.precio.addEventListener("input", recalc);
-  els.pesoTotal.addEventListener("input", recalc);
   els.pesoTotal.addEventListener("change", function () {
     enforceTotalWeightCapFromStart();
     recalc();
   });
-  els.pesoNeto.addEventListener("input", recalc);
-  els.pesoSeco.addEventListener("input", recalc);
   els.lote.addEventListener("input", recalc);
   els.fecha.addEventListener("change", recalc);
   els.supervisor.addEventListener("input", recalc);
