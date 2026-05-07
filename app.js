@@ -952,17 +952,6 @@
           );
           return;
         }
-        if (Math.abs(sumTab - cap) > 1e-6) {
-          alertErr(
-            "La suma debe igualar el Peso (TM)",
-            "Complete los pesajes hasta que la suma sea exactamente " +
-              fmtTMFlex(cap) +
-              " TN. Ahora suma " +
-              fmtTMFlex(sumTab) +
-              " TN."
-          );
-          return;
-        }
       }
 
       var JsPDF = window.jspdf.jsPDF;
